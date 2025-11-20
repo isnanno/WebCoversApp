@@ -155,6 +155,28 @@ GEMINI_API_KEY=sua_chave_api_gemini_aqui
 
 **Nota:** A funcionalidade de geração de letras requer a configuração da `GEMINI_API_KEY`. Sem ela, apenas o gerenciamento de covers funcionará.
 
+### Configuração de Cookies do YouTube
+
+Para que a geração de letras funcione corretamente, o YouTube pode exigir autenticação. Existem duas formas de configurar:
+
+#### Opção 1: Arquivo cookies.txt (Recomendado)
+
+1. Instale a extensão **"Get cookies.txt LOCALLY"** no seu navegador Chrome
+2. Acesse o YouTube e faça login na sua conta
+3. Clique na extensão e selecione "Export"
+4. Salve o arquivo como `cookies.txt` na raiz do projeto (mesma pasta do `server.js`)
+
+O sistema detectará automaticamente o arquivo e o usará para autenticação.
+
+#### Opção 2: Cookies do Navegador (Automático)
+
+O sistema tenta automaticamente usar cookies do Chrome instalado no sistema. Se você já está logado no YouTube no Chrome, isso pode funcionar automaticamente.
+
+**Importante:** Se você encontrar erros de autenticação mesmo com cookies configurados, tente:
+- Atualizar o arquivo `cookies.txt` (os cookies expiram)
+- Verificar se o arquivo não está vazio
+- Verificar se o arquivo está na pasta correta (raiz do projeto)
+
 ## 📖 Uso
 
 ### Primeiro Acesso
@@ -260,6 +282,7 @@ Este projeto está sob a licença ISC. Veja o arquivo `LICENSE` para mais detalh
 - **Idioma**: Atualmente, apenas legendas em português (pt-BR, pt, por) são suportadas.
 - **API Key**: A funcionalidade de geração de letras requer uma chave válida da API do Google Gemini.
 - **yt-dlp**: Certifique-se de que o `yt-dlp` está instalado e acessível no PATH do sistema.
+- **Cookies do YouTube**: Para evitar bloqueios de autenticação, é altamente recomendado configurar um arquivo `cookies.txt` na raiz do projeto. Veja a seção de configuração acima para instruções detalhadas.
 
 ## 🐛 Problemas Conhecidos
 

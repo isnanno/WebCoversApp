@@ -15,6 +15,13 @@
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
         }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 min-h-screen p-4">
@@ -50,8 +57,13 @@
                     {{ modoLogin ? 'Entrar' : 'Cadastrar' }}
                 </button>
                 
-                <div v-if="mensagemErro" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                    {{ mensagemErro }}
+                <div v-if="mensagemErro" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm animate-fade-in">
+                    <div class="flex items-center justify-between">
+                        <span>{{ mensagemErro }}</span>
+                        <button @click="mensagemErro = ''" class="ml-2 text-red-700 hover:text-red-900">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -103,8 +115,13 @@
                             <i data-lucide="plus"></i> Adicionar
                         </button>
                     </div>
-                    <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                        {{ mensagemErro }}
+                    <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm animate-fade-in">
+                        <div class="flex items-center justify-between">
+                            <span>{{ mensagemErro }}</span>
+                            <button @click="mensagemErro = ''" class="ml-2 text-red-700 hover:text-red-900">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
                     </div>
                     <div v-if="mensagemSucesso" class="mt-3 p-3 bg-green-100 text-green-700 rounded-lg text-sm">
                         {{ mensagemSucesso }}
@@ -316,8 +333,13 @@
                             </button>
                         </div>
                         
-                        <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                            {{ mensagemErro }}
+                        <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm animate-fade-in">
+                            <div class="flex items-center justify-between">
+                                <span class="flex-1">{{ mensagemErro }}</span>
+                                <button @click="mensagemErro = ''" class="ml-2 text-red-700 hover:text-red-900 flex-shrink-0">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -345,8 +367,13 @@
                             </div>
                         </div>
                         
-                        <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                            {{ mensagemErro }}
+                        <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm animate-fade-in">
+                            <div class="flex items-center justify-between">
+                                <span class="flex-1">{{ mensagemErro }}</span>
+                                <button @click="mensagemErro = ''" class="ml-2 text-red-700 hover:text-red-900 flex-shrink-0">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -416,6 +443,7 @@
                     
                     if (!this.usuarioInput || !this.senhaInput) {
                         this.mensagemErro = 'Preencha todos os campos';
+                        setTimeout(() => this.mensagemErro = '', 3000);
                         return;
                     }
                     
@@ -439,9 +467,11 @@
                             await this.carregarConfiguracoes();
                         } else {
                             this.mensagemErro = data.message || 'Erro ao cadastrar';
+                            setTimeout(() => this.mensagemErro = '', 5000);
                         }
                     } catch (e) {
                         this.mensagemErro = 'Erro ao conectar com o servidor';
+                        setTimeout(() => this.mensagemErro = '', 5000);
                     }
                 },
                 async fazerLogin() {
@@ -473,9 +503,11 @@
                             await this.carregarConfiguracoes();
                         } else {
                             this.mensagemErro = data.message || 'Usuário ou senha incorretos';
+                            setTimeout(() => this.mensagemErro = '', 5000);
                         }
                     } catch (e) {
                         this.mensagemErro = 'Erro ao conectar com o servidor';
+                        setTimeout(() => this.mensagemErro = '', 5000);
                     }
                 },
                 sair() {
@@ -519,9 +551,11 @@
                             setTimeout(() => this.mensagemSucesso = '', 3000);
                         } else {
                             this.mensagemErro = data.message || 'Erro ao adicionar cover';
+                            setTimeout(() => this.mensagemErro = '', 5000);
                         }
                     } catch (e) {
                         this.mensagemErro = 'Erro ao adicionar cover. Verifique se a URL é válida.';
+                        setTimeout(() => this.mensagemErro = '', 5000);
                     } finally {
                         this.carregando = false;
                     }
@@ -565,11 +599,12 @@
                 async carregarUsuarios() {
                     this.carregandoUsuarios = true;
                     try {
-                        const res = await fetch('/api/usuarios');
+                        const res = await fetch(`/api/usuarios?usuarioLogado=${encodeURIComponent(this.usuarioLogado)}`);
                         this.usuariosCadastrados = await res.json();
                     } catch (e) {
                         console.error('Erro ao carregar usuários:', e);
                         this.mensagemErro = 'Erro ao carregar lista de usuários';
+                        setTimeout(() => this.mensagemErro = '', 3000);
                     } finally {
                         this.carregandoUsuarios = false;
                     }
@@ -605,11 +640,18 @@
                 async buscarInfoVideo() {
                     if (!this.urlLetra) {
                         this.mensagemErro = 'Por favor, insira um link do YouTube';
+                        setTimeout(() => this.mensagemErro = '', 3000);
                         return;
                     }
                     
-                    this.confirmandoVideo = true;
+                    // Limpa estados anteriores
                     this.mensagemErro = '';
+                    this.infoVideoLetra = null;
+                    this.letraGerada = null;
+                    this.confirmandoVideo = true;
+                    
+                    // Força atualização imediata
+                    await this.$nextTick();
                     
                     try {
                         const res = await fetch('/api/letras/info', {
@@ -620,27 +662,42 @@
                         
                         const data = await res.json();
                         
+                        // Sempre reseta o estado de carregamento ANTES de atualizar outros estados
+                        this.confirmandoVideo = false;
+                        await this.$nextTick();
+                        
                         if (data.success) {
                             this.infoVideoLetra = data.info;
                         } else {
                             this.mensagemErro = data.message || 'Erro ao buscar informações do vídeo';
+                            setTimeout(() => this.mensagemErro = '', 5000);
                         }
                     } catch (e) {
-                        this.mensagemErro = 'Erro ao conectar com o servidor';
-                    } finally {
                         this.confirmandoVideo = false;
+                        this.mensagemErro = 'Erro ao conectar com o servidor';
+                        setTimeout(() => this.mensagemErro = '', 5000);
                     }
+                    
+                    // Força atualização final
+                    await this.$nextTick();
                 },
                 cancelarConfirmacao() {
                     this.infoVideoLetra = null;
                     this.urlLetra = '';
+                    this.letraGerada = null;
+                    this.mensagemErro = '';
+                    this.confirmandoVideo = false;
                 },
                 async confirmarEGerarLetra() {
                     if (!this.infoVideoLetra) return;
                     
+                    // Limpa estado anterior e inicia geração
                     this.gerandoLetra = true;
                     this.mensagemErro = '';
                     this.letraGerada = null;
+                    
+                    // Força atualização imediata
+                    await this.$nextTick();
                     
                     try {
                         const res = await fetch('/api/letras/gerar', {
@@ -651,16 +708,24 @@
                         
                         const data = await res.json();
                         
+                        // Sempre reseta o estado de carregamento ANTES de atualizar outros estados
+                        this.gerandoLetra = false;
+                        await this.$nextTick();
+                        
                         if (data.success) {
                             this.letraGerada = data.letra;
                         } else {
                             this.mensagemErro = data.message || 'Erro ao gerar letra';
+                            setTimeout(() => this.mensagemErro = '', 5000);
                         }
                     } catch (e) {
-                        this.mensagemErro = 'Erro ao gerar letra';
-                    } finally {
                         this.gerandoLetra = false;
+                        this.mensagemErro = 'Erro ao gerar letra';
+                        setTimeout(() => this.mensagemErro = '', 5000);
                     }
+                    
+                    // Força atualização final
+                    await this.$nextTick();
                 },
                 baixarLetra() {
                     if (!this.letraGerada || !this.infoVideoLetra) return;
@@ -720,9 +785,11 @@
                             setTimeout(() => this.mensagemSucesso = '', 3000);
                         } else {
                             this.mensagemErro = data.message || 'Erro ao salvar configurações';
+                            setTimeout(() => this.mensagemErro = '', 5000);
                         }
                     } catch (e) {
                         this.mensagemErro = 'Erro ao salvar configurações';
+                        setTimeout(() => this.mensagemErro = '', 5000);
                         console.error('Erro ao salvar configurações:', e);
                     } finally {
                         this.salvandoConfiguracoes = false;

@@ -6,6 +6,7 @@ const path = require('path');
 const https = require('https');
 const axios = require('axios');
 const ytdlp = require('yt-dlp-exec');
+const os = require('os');
 const app = express();
 const PORT = 3001; // Porta diferente do projeto principal
 
@@ -91,14 +92,17 @@ app.post('/api/cadastrar', (req, res) => {
     const { usuario, senha } = req.body;
     
     if (!usuario || !senha) {
+        console.log('❌ [CADASTRO] Tentativa de cadastro sem usuário ou senha');
         return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios' });
     }
     
     const usuarios = lerUsuarios();
     
-    // Verifica se o usuário já existe
-    if (usuarios.find(u => u.usuario === usuario)) {
-        return res.status(400).json({ success: false, message: 'Usuário já existe' });
+    // Verifica se o usuário já existe (case-insensitive)
+    const usuarioExistente = usuarios.find(u => u.usuario.toLowerCase() === usuario.toLowerCase());
+    if (usuarioExistente) {
+        console.log(`❌ [CADASTRO] Tentativa de cadastro com nome já existente: ${usuario}`);
+        return res.status(400).json({ success: false, message: 'Este nome de usuário já está em uso. Escolha outro nome.' });
     }
     
     // Adiciona novo usuário com configurações padrão
@@ -109,6 +113,7 @@ app.post('/api/cadastrar', (req, res) => {
     });
     salvarUsuarios(usuarios);
     
+    console.log(`✅ [CADASTRO] Novo usuário cadastrado: ${usuario}`);
     res.json({ success: true, message: 'Usuário cadastrado com sucesso' });
 });
 
@@ -117,6 +122,7 @@ app.post('/api/login', (req, res) => {
     const { usuario, senha } = req.body;
     
     if (!usuario || !senha) {
+        console.log('❌ [LOGIN] Tentativa de login sem usuário ou senha');
         return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios' });
     }
     
@@ -124,26 +130,30 @@ app.post('/api/login', (req, res) => {
     const usuarioEncontrado = usuarios.find(u => u.usuario === usuario && u.senha === senha);
     
     if (!usuarioEncontrado) {
+        console.log(`❌ [LOGIN] Tentativa de login falhou para: ${usuario}`);
         return res.status(401).json({ success: false, message: 'Usuário ou senha incorretos' });
     }
     
+    console.log(`✅ [LOGIN] Usuário logado com sucesso: ${usuario}`);
     res.json({ success: true, message: 'Login realizado com sucesso' });
 });
 
 // Rota: Listar todos os usuários cadastrados
 app.get('/api/usuarios', (req, res) => {
+    const usuarioLogado = req.query.usuarioLogado; // Usuário que está fazendo a requisição
     const usuarios = lerUsuarios();
     const covers = lerCovers();
     
     // Retorna apenas os nomes dos usuários e a quantidade de covers de cada um
-    // Filtra usuários com perfil privado
+    // Filtra usuários com perfil privado e remove o próprio usuário logado
     const usuariosComInfo = usuarios
-        .filter(u => !u.perfilPrivado) // Remove perfis privados
+        .filter(u => !u.perfilPrivado && u.usuario !== usuarioLogado) // Remove perfis privados e o próprio usuário
         .map(u => ({
             usuario: u.usuario,
             totalCovers: covers[u.usuario] ? covers[u.usuario].length : 0
         }));
     
+    console.log(`📋 [USUÁRIOS] Lista de usuários solicitada por: ${usuarioLogado || 'não logado'} (${usuariosComInfo.length} usuários visíveis)`);
     res.json(usuariosComInfo);
 });
 
@@ -175,10 +185,12 @@ app.post('/api/covers', async (req, res) => {
     const { usuario, url } = req.body;
     
     if (!usuario || !url) {
+        console.log('❌ [COVERS] Tentativa de adicionar cover sem usuário ou URL');
         return res.status(400).json({ success: false, message: 'Usuário e URL são obrigatórios' });
     }
     
     try {
+        console.log(`📥 [COVERS] Usuário ${usuario} tentando adicionar cover: ${url}`);
         const infoVideo = await obterInfoYouTube(url);
         const covers = lerCovers();
         
@@ -196,8 +208,10 @@ app.post('/api/covers', async (req, res) => {
         covers[usuario].push(novoCover);
         salvarCovers(covers);
         
+        console.log(`✅ [COVERS] Cover adicionado com sucesso: "${infoVideo.titulo}" por ${usuario}`);
         res.json({ success: true, cover: novoCover });
     } catch (error) {
+        console.log(`❌ [COVERS] Erro ao adicionar cover: ${error.message}`);
         res.status(400).json({ success: false, message: error.message });
     }
 });
@@ -412,6 +426,11 @@ async function downloadSubtitles(url) {
         const workdir = __dirname;
         const outputTemplate = path.join(workdir, 'subtitle_%(title)s.%(ext)s');
         const cookiesPath = path.join(workdir, 'cookies.txt');
+        const cookiesPathAlt = path.resolve('cookies.txt'); // Caminho alternativo
+        
+        console.log(`🔍 [LETRAS] Verificando cookies em: ${cookiesPath}`);
+        console.log(`🔍 [LETRAS] Caminho alternativo: ${cookiesPathAlt}`);
+        console.log(`🔍 [LETRAS] Diretório atual: ${workdir}`);
         
         try {
             const downloadOptions = {
@@ -420,13 +439,54 @@ async function downloadSubtitles(url) {
                 subLangs: 'pt-BR,pt,por',
                 skipDownload: true,
                 output: outputTemplate,
-                restrictFilenames: true
+                restrictFilenames: true,
+                // Adiciona opções para contornar problemas de autenticação
+                extractorArgs: 'youtube:player_client=android',
+                noCheckCertificates: false
             };
             
+            // Verifica múltiplos caminhos possíveis para cookies
+            let cookiesFile = null;
             if (fs.existsSync(cookiesPath)) {
-                downloadOptions.cookies = cookiesPath;
+                cookiesFile = cookiesPath;
+                console.log(`✅ [LETRAS] Arquivo de cookies encontrado em: ${cookiesPath}`);
+            } else if (fs.existsSync(cookiesPathAlt)) {
+                cookiesFile = cookiesPathAlt;
+                console.log(`✅ [LETRAS] Arquivo de cookies encontrado em: ${cookiesPathAlt}`);
+            } else {
+                console.log(`⚠️  [LETRAS] Arquivo cookies.txt não encontrado em nenhum dos caminhos`);
             }
             
+            // Se encontrou cookies, usa eles
+            if (cookiesFile) {
+                downloadOptions.cookies = cookiesFile;
+                console.log(`📋 [LETRAS] Usando arquivo de cookies: ${cookiesFile}`);
+                
+                // Verifica se o arquivo não está vazio
+                const stats = fs.statSync(cookiesFile);
+                if (stats.size === 0) {
+                    console.log(`⚠️  [LETRAS] Arquivo de cookies está vazio!`);
+                } else {
+                    console.log(`📋 [LETRAS] Tamanho do arquivo de cookies: ${stats.size} bytes`);
+                }
+            }
+            
+            // Tenta usar cookies do navegador também como fallback
+            const platform = os.platform();
+            try {
+                if (!cookiesFile) {
+                    downloadOptions.cookiesFromBrowser = 'chrome';
+                    console.log('📋 [LETRAS] Tentando usar cookies do Chrome automaticamente (fallback)');
+                } else {
+                    // Mesmo com cookies.txt, tenta usar do navegador também
+                    downloadOptions.cookiesFromBrowser = 'chrome';
+                    console.log('📋 [LETRAS] Usando cookies do Chrome como complemento');
+                }
+            } catch (e) {
+                console.log('⚠️  [LETRAS] Não foi possível usar cookies do Chrome');
+            }
+            
+            console.log('📥 [LETRAS] Executando yt-dlp...');
             await ytdlp(url, downloadOptions);
             
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -442,24 +502,27 @@ async function downloadSubtitles(url) {
             const now = Date.now();
             const subtitleFiles = files.filter(f => {
                 const timeDiff = now - f.mtime;
-                const isRecent = timeDiff < 15000;
+                const isRecent = timeDiff < 30000; // Aumentado para 30 segundos
                 const isSubtitle = /\.(srt|vtt|ass|ttml|lrc)$/i.test(f.name);
                 const hasSubtitlePrefix = f.name.startsWith('subtitle_');
                 return isRecent && isSubtitle && hasSubtitlePrefix;
             });
             
             if (subtitleFiles.length === 0) {
+                console.log('❌ [LETRAS] Nenhum arquivo de legenda encontrado após download');
                 reject(new Error('LEGENDAS_MANUAIS_NAO_ENCONTRADAS'));
                 return;
             }
             
             const subtitleFile = subtitleFiles[0];
+            console.log(`✅ [LETRAS] Arquivo de legenda encontrado: ${subtitleFile.name}`);
             const subtitleContent = fs.readFileSync(subtitleFile.fullPath, 'utf8');
             
             try {
                 fs.unlinkSync(subtitleFile.fullPath);
+                console.log('🗑️  [LETRAS] Arquivo temporário removido');
             } catch (e) {
-                console.error('Erro ao deletar arquivo de legenda temporário:', e);
+                console.error('⚠️  [LETRAS] Erro ao deletar arquivo temporário:', e);
             }
             
             resolve(subtitleContent);
@@ -469,7 +532,13 @@ async function downloadSubtitles(url) {
             const errorStderr = (error.stderr || '').toLowerCase();
             const fullError = `${errorMessage} ${errorStdout} ${errorStderr}`;
             
-            if (fullError.includes('no subtitles') || 
+            console.log(`❌ [LETRAS] Erro completo: ${fullError}`);
+            
+            // Verifica se é erro de autenticação
+            if (fullError.includes('sign in') || fullError.includes('bot') || fullError.includes('cookies')) {
+                console.log('⚠️  [LETRAS] Erro de autenticação detectado. YouTube pode estar bloqueando.');
+                reject(new Error('O YouTube está pedindo autenticação. Tente adicionar um arquivo cookies.txt na raiz do projeto ou use cookies do navegador. Veja o README para mais informações.'));
+            } else if (fullError.includes('no subtitles') || 
                 fullError.includes('no captions') ||
                 fullError.includes('requested subtitle') ||
                 fullError.includes('legendas_manuais_nao_encontradas')) {
@@ -486,13 +555,17 @@ app.post('/api/letras/info', async (req, res) => {
     const { url } = req.body;
     
     if (!url) {
+        console.log('❌ [LETRAS] Tentativa de buscar info sem URL');
         return res.status(400).json({ success: false, message: 'URL é obrigatória' });
     }
     
     try {
+        console.log(`🔍 [LETRAS] Buscando informações do vídeo: ${url}`);
         const info = await obterInfoYouTube(url);
+        console.log(`✅ [LETRAS] Informações obtidas: "${info.titulo}"`);
         res.json({ success: true, info });
     } catch (error) {
+        console.log(`❌ [LETRAS] Erro ao buscar informações: ${error.message}`);
         res.status(400).json({ success: false, message: error.message });
     }
 });
@@ -502,29 +575,94 @@ app.post('/api/letras/gerar', async (req, res) => {
     const { url } = req.body;
     
     if (!url) {
+        console.log('❌ [LETRAS] Tentativa de gerar letra sem URL');
         return res.status(400).json({ success: false, message: 'URL é obrigatória' });
     }
     
     try {
+        console.log(`🎵 [LETRAS] Iniciando geração de letra para: ${url}`);
+        console.log(`📥 [LETRAS] Baixando legendas...`);
         const subtitleText = await downloadSubtitles(url);
+        console.log(`✅ [LETRAS] Legendas baixadas (${subtitleText.length} caracteres)`);
+        console.log(`🤖 [LETRAS] Processando com Gemini AI...`);
         const cleanedLyrics = await processLyricsWithGemini(subtitleText);
+        console.log(`✅ [LETRAS] Letra gerada com sucesso (${cleanedLyrics.length} caracteres)`);
         res.json({ success: true, letra: cleanedLyrics });
     } catch (error) {
         let message = error.message || 'Erro ao gerar letra';
         if (error.message === 'LEGENDAS_MANUAIS_NAO_ENCONTRADAS') {
             message = 'Este vídeo não possui legendas manuais em português. Apenas legendas manuais são suportadas.';
+            console.log(`❌ [LETRAS] ${message}`);
         } else if (error.message && error.message.includes('GEMINI_API_KEY')) {
             message = 'GEMINI_API_KEY não configurada. Configure no arquivo .env';
+            console.log(`❌ [LETRAS] ${message}`);
+        } else {
+            console.log(`❌ [LETRAS] Erro ao gerar letra: ${error.message}`);
         }
         res.status(400).json({ success: false, message });
     }
 });
 
+// Função para obter IP público
+async function obterIPPublico() {
+    try {
+        const response = await axios.get('https://api.ipify.org?format=json', { timeout: 5000 });
+        return response.data.ip;
+    } catch (error) {
+        try {
+            const response = await axios.get('https://ifconfig.me/ip', { timeout: 5000 });
+            return response.data.trim();
+        } catch (error2) {
+            return null;
+        }
+    }
+}
+
+// Função para obter IP local
+function obterIPLocal() {
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                return iface.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+
 // Iniciar o servidor
-app.listen(PORT, () => {
-    console.log(`✅ SERVIDOR DE COVERS RODANDO!`);
-    console.log(`📂 Dados salvos em: ${path.resolve(USERS_FILE)} e ${path.resolve(COVERS_FILE)}`);
-    console.log(`🌐 Acesse localmente: http://localhost:${PORT}`);
-    console.log(`🔌 Para desligar, pressione CTRL + C`);
+app.listen(PORT, async () => {
+    console.log('\n' + '='.repeat(60));
+    console.log('🎵  WEBCOVERS - Sistema de Fila de Covers com Gerador de Letras');
+    console.log('='.repeat(60));
+    console.log(`\n✅ SERVIDOR INICIADO COM SUCESSO!`);
+    console.log(`\n📂 Dados salvos em:`);
+    console.log(`   - ${path.resolve(USERS_FILE)}`);
+    console.log(`   - ${path.resolve(COVERS_FILE)}`);
+    
+    const ipLocal = obterIPLocal();
+    console.log(`\n🌐 ACESSO LOCAL:`);
+    console.log(`   http://localhost:${PORT}`);
+    console.log(`   http://${ipLocal}:${PORT}`);
+    
+    // Tenta obter IP público
+    console.log(`\n🔍 Detectando IP público...`);
+    const ipPublico = await obterIPPublico();
+    
+    if (ipPublico) {
+        console.log(`\n🌍 ACESSO PÚBLICO (para compartilhar):`);
+        console.log(`   http://${ipPublico}:${PORT}`);
+        console.log(`\n📋 Link pronto para copiar:`);
+        console.log(`   http://${ipPublico}:${PORT}`);
+    } else {
+        console.log(`\n⚠️  Não foi possível detectar o IP público automaticamente.`);
+        console.log(`   Verifique seu IP público manualmente ou configure um domínio.`);
+    }
+    
+    console.log(`\n🔌 Para desligar, pressione CTRL + C`);
+    console.log('='.repeat(60) + '\n');
 });
 
