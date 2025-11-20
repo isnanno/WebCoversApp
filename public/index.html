@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fila de Covers - YouTube</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 min-h-screen p-4">
+    <div id="app" class="max-w-6xl mx-auto">
+        
+        <!-- Tela de Login/Cadastro -->
+        <div v-if="!usuarioLogado" class="bg-white rounded-lg shadow-2xl p-8 max-w-md mx-auto mt-20">
+            <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">
+                <i data-lucide="music" class="w-8 h-8 inline-block"></i> Fila de Covers
+            </h1>
+            
+            <div class="mb-6">
+                <div class="flex gap-2 mb-4">
+                    <button @click="modoLogin = true" :class="modoLogin ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'" class="flex-1 py-2 px-4 rounded font-bold transition-colors">
+                        Entrar
+                    </button>
+                    <button @click="modoLogin = false" :class="!modoLogin ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'" class="flex-1 py-2 px-4 rounded font-bold transition-colors">
+                        Cadastrar
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-bold mb-2">Usuário</label>
+                    <input v-model="usuarioInput" type="text" placeholder="Digite seu usuário" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-bold mb-2">Senha</label>
+                    <input v-model="senhaInput" type="password" placeholder="Digite sua senha" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                
+                <button @click="modoLogin ? fazerLogin() : fazerCadastro()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg font-bold transition-colors">
+                    {{ modoLogin ? 'Entrar' : 'Cadastrar' }}
+                </button>
+                
+                <div v-if="mensagemErro" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                    {{ mensagemErro }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tela Principal -->
+        <div v-else class="bg-white rounded-lg shadow-2xl overflow-hidden">
+            <!-- Cabeçalho -->
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-4">
+                            <div>
+                                <h1 class="text-3xl font-bold flex items-center gap-2">
+                                    <i data-lucide="music"></i> Fila de Covers
+                                </h1>
+                                <p class="text-indigo-100 text-sm mt-1">Usuário: <b>{{ usuarioLogado }}</b></p>
+                            </div>
+                        </div>
+                        <button @click="sair" class="bg-white text-indigo-600 px-4 py-2 rounded font-bold hover:bg-indigo-50 transition-colors">
+                            Sair
+                        </button>
+                    </div>
+            </div>
+
+            <!-- Abas de Navegação -->
+            <div class="border-b border-gray-200 bg-gray-50 overflow-x-auto scrollbar-hide" style="-webkit-overflow-scrolling: touch;">
+                <div class="flex min-w-max">
+                    <button @click="abaAtiva = 'minhaFila'" :class="abaAtiva === 'minhaFila' ? 'border-b-2 border-indigo-600 text-indigo-600 font-bold' : 'text-gray-600 hover:text-gray-800'" class="px-6 py-4 transition-colors flex items-center gap-2 whitespace-nowrap">
+                        <i data-lucide="list"></i> Minha Fila
+                    </button>
+                    <button @click="abaAtiva = 'usuarios'" :class="abaAtiva === 'usuarios' ? 'border-b-2 border-indigo-600 text-indigo-600 font-bold' : 'text-gray-600 hover:text-gray-800'" class="px-6 py-4 transition-colors flex items-center gap-2 whitespace-nowrap">
+                        <i data-lucide="users"></i> Usuários Cadastrados
+                    </button>
+                    <button @click="abaAtiva = 'configuracoes'" :class="abaAtiva === 'configuracoes' ? 'border-b-2 border-indigo-600 text-indigo-600 font-bold' : 'text-gray-600 hover:text-gray-800'" class="px-6 py-4 transition-colors flex items-center gap-2 whitespace-nowrap">
+                        <i data-lucide="settings"></i> Configurações
+                    </button>
+                    <button @click="abaAtiva = 'letras'" :class="abaAtiva === 'letras' ? 'border-b-2 border-indigo-600 text-indigo-600 font-bold' : 'text-gray-600 hover:text-gray-800'" class="px-6 py-4 transition-colors flex items-center gap-2 whitespace-nowrap">
+                        <i data-lucide="file-text"></i> Letras
+                    </button>
+                </div>
+            </div>
+
+            <!-- Conteúdo da Aba: Minha Fila -->
+            <div v-if="abaAtiva === 'minhaFila'">
+                <!-- Adicionar Cover -->
+                <div class="p-6 bg-gray-50 border-b">
+                    <div class="flex gap-2">
+                        <input v-model="urlVideo" type="text" placeholder="Cole o link do vídeo do YouTube aqui..." class="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <button @click="adicionarCover" :disabled="!urlVideo || carregando" class="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center gap-2">
+                            <i data-lucide="plus"></i> Adicionar
+                        </button>
+                    </div>
+                    <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                        {{ mensagemErro }}
+                    </div>
+                    <div v-if="mensagemSucesso" class="mt-3 p-3 bg-green-100 text-green-700 rounded-lg text-sm">
+                        {{ mensagemSucesso }}
+                    </div>
+                </div>
+
+                <!-- Lista de Covers -->
+                <div class="p-6">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">Sua Fila ({{ covers.length }})</h2>
+                    
+                    <div v-if="covers.length === 0" class="text-center py-12 text-gray-400">
+                        <i data-lucide="music-2" class="w-16 h-16 mx-auto mb-4 opacity-50"></i>
+                        <p>Nenhum cover na fila ainda.</p>
+                        <p class="text-sm mt-2">Adicione um link do YouTube acima para começar!</p>
+                    </div>
+
+                    <div v-else class="space-y-4">
+                        <div v-for="(cover, index) in covers" :key="cover.id" class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow group">
+                            <div class="flex gap-4">
+                                <!-- Thumbnail -->
+                                <div class="flex-shrink-0">
+                                    <img :src="cover.thumbnail" :alt="cover.titulo" class="w-32 h-24 object-cover rounded-lg">
+                                </div>
+                                
+                                <!-- Informações -->
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-bold text-lg text-gray-800 mb-2 truncate">{{ cover.titulo }}</h3>
+                                    <p class="text-sm text-gray-600 mb-3">Posição na fila: <b>#{{ index + 1 }}</b></p>
+                                    <a :href="cover.url" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm flex items-center gap-1">
+                                        <i data-lucide="external-link" class="w-4 h-4"></i> Abrir no YouTube
+                                    </a>
+                                </div>
+                                
+                                <!-- Controles -->
+                                <div class="flex flex-col gap-2">
+                                    <button @click="moverCover(index, 'up')" :disabled="index === 0" class="p-2 bg-white border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" title="Mover para cima">
+                                        <i data-lucide="arrow-up" class="w-5 h-5"></i>
+                                    </button>
+                                    <button @click="moverCover(index, 'down')" :disabled="index === covers.length - 1" class="p-2 bg-white border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" title="Mover para baixo">
+                                        <i data-lucide="arrow-down" class="w-5 h-5"></i>
+                                    </button>
+                                    <button @click="removerCover(cover.id)" class="p-2 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" title="Remover">
+                                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conteúdo da Aba: Usuários Cadastrados -->
+            <div v-if="abaAtiva === 'usuarios'">
+                <!-- Visualização de Perfil do Usuário -->
+                <div v-if="usuarioSelecionado" class="p-6">
+                    <div class="mb-6">
+                        <button @click="voltarParaListaUsuarios" class="text-indigo-600 hover:text-indigo-800 flex items-center gap-2 mb-4">
+                            <i data-lucide="arrow-left" class="w-5 h-5"></i> Voltar para lista de usuários
+                        </button>
+                        
+                        <!-- Mensagem de Perfil Privado -->
+                        <div v-if="erroPerfilPrivado" class="mb-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+                            <div class="flex items-start gap-3">
+                                <i data-lucide="lock" class="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5"></i>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-yellow-800 mb-1">Perfil Privado</h3>
+                                    <p class="text-yellow-700 text-sm">Este perfil está privado. O usuário <b>{{ usuarioSelecionado }}</b> optou por manter sua lista de covers privada e não permite que outros usuários visualizem seus covers.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div v-else>
+                            <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                                <i data-lucide="user" class="w-6 h-6"></i> Perfil de {{ usuarioSelecionado }}
+                            </h2>
+                            <p class="text-gray-600 mt-2">Covers na lista: <b>{{ coversUsuarioSelecionado.length }}</b></p>
+                        </div>
+                    </div>
+
+                    <div v-if="erroPerfilPrivado" class="text-center py-12 text-gray-400">
+                        <i data-lucide="lock" class="w-16 h-16 mx-auto mb-4 opacity-50"></i>
+                        <p class="text-lg font-semibold text-gray-600">Acesso Negado</p>
+                        <p class="text-sm mt-2">Você não tem permissão para visualizar este perfil.</p>
+                    </div>
+
+                    <div v-else-if="coversUsuarioSelecionado.length === 0" class="text-center py-12 text-gray-400">
+                        <i data-lucide="music-2" class="w-16 h-16 mx-auto mb-4 opacity-50"></i>
+                        <p>Este usuário ainda não adicionou nenhum cover à lista.</p>
+                    </div>
+
+                    <div v-else class="space-y-4">
+                        <div v-for="(cover, index) in coversUsuarioSelecionado" :key="cover.id" class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                            <div class="flex gap-4">
+                                <!-- Thumbnail -->
+                                <div class="flex-shrink-0">
+                                    <img :src="cover.thumbnail" :alt="cover.titulo" class="w-32 h-24 object-cover rounded-lg">
+                                </div>
+                                
+                                <!-- Informações -->
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-bold text-lg text-gray-800 mb-2 truncate">{{ cover.titulo }}</h3>
+                                    <p class="text-sm text-gray-600 mb-3">Posição na fila: <b>#{{ index + 1 }}</b></p>
+                                    <a :href="cover.url" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm flex items-center gap-1">
+                                        <i data-lucide="external-link" class="w-4 h-4"></i> Abrir no YouTube
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Usuários -->
+                <div v-else class="p-6">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+                        <i data-lucide="users" class="w-6 h-6"></i> Usuários Cadastrados ({{ usuariosCadastrados.length }})
+                    </h2>
+                    
+                    <div v-if="carregandoUsuarios" class="text-center py-12 text-gray-400">
+                        <i data-lucide="loader" class="w-8 h-8 mx-auto mb-4 animate-spin"></i>
+                        <p>Carregando usuários...</p>
+                    </div>
+
+                    <div v-else-if="usuariosCadastrados.length === 0" class="text-center py-12 text-gray-400">
+                        <i data-lucide="users" class="w-16 h-16 mx-auto mb-4 opacity-50"></i>
+                        <p>Nenhum usuário cadastrado ainda.</p>
+                    </div>
+
+                    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div v-for="usuario in usuariosCadastrados" :key="usuario.usuario" 
+                             @click="abrirPerfilUsuario(usuario.usuario)" 
+                             class="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all">
+                            <div class="flex items-center gap-3">
+                                <div class="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 bg-indigo-100">
+                                    <i data-lucide="user" class="w-8 h-8 text-indigo-600"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-bold text-lg text-gray-800 truncate">{{ usuario.usuario }}</h3>
+                                    <p class="text-sm text-gray-600">{{ usuario.totalCovers }} cover{{ usuario.totalCovers !== 1 ? 's' : '' }} na lista</p>
+                                </div>
+                                <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400 flex-shrink-0"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conteúdo da Aba: Configurações -->
+            <div v-if="abaAtiva === 'configuracoes'" class="p-6">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+                    <i data-lucide="settings" class="w-6 h-6"></i> Configurações do Perfil
+                </h2>
+
+                <div class="max-w-2xl space-y-6">
+                    <!-- Privacidade -->
+                    <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="lock" class="w-5 h-5"></i> Privacidade
+                        </h3>
+                        
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800 mb-1">Perfil Privado</p>
+                                <p class="text-sm text-gray-600">Quando ativado, outros usuários não poderão ver sua lista de covers</p>
+                            </div>
+                            
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="perfilPrivado" @change="salvarConfiguracoes" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Mensagens de Sucesso/Erro -->
+                    <div v-if="mensagemErro" class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                        {{ mensagemErro }}
+                    </div>
+                    <div v-if="mensagemSucesso" class="p-3 bg-green-100 text-green-700 rounded-lg text-sm">
+                        {{ mensagemSucesso }}
+                    </div>
+
+                    <!-- Botão Salvar -->
+                    <div class="flex justify-end">
+                        <button @click="salvarConfiguracoes" :disabled="salvandoConfiguracoes" class="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i> {{ salvandoConfiguracoes ? 'Salvando...' : 'Salvar Configurações' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conteúdo da Aba: Letras -->
+            <div v-if="abaAtiva === 'letras'" class="p-6">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-6 h-6"></i> Gerador de Letras
+                </h2>
+
+                <div class="max-w-3xl space-y-6">
+                    <!-- Input de URL -->
+                    <div v-if="!infoVideoLetra && !letraGerada" class="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="link" class="w-5 h-5"></i> Link do YouTube
+                        </h3>
+                        
+                        <div class="flex gap-2">
+                            <input v-model="urlLetra" type="text" placeholder="Cole o link do vídeo do YouTube aqui..." class="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <button @click="buscarInfoVideo" :disabled="!urlLetra || confirmandoVideo" class="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center gap-2">
+                                <i v-if="!confirmandoVideo" data-lucide="search" class="w-5 h-5"></i>
+                                <i v-else data-lucide="loader" class="w-5 h-5 animate-spin"></i>
+                                {{ confirmandoVideo ? 'Buscando...' : 'Buscar' }}
+                            </button>
+                        </div>
+                        
+                        <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                            {{ mensagemErro }}
+                        </div>
+                    </div>
+
+                    <!-- Confirmação do Vídeo -->
+                    <div v-if="infoVideoLetra && !letraGerada" class="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="check-circle" class="w-5 h-5"></i> Confirmar Vídeo
+                        </h3>
+                        
+                        <div class="flex gap-4 mb-4">
+                            <img :src="infoVideoLetra.thumbnail" :alt="infoVideoLetra.titulo" class="w-48 h-36 object-cover rounded-lg flex-shrink-0">
+                            <div class="flex-1">
+                                <h4 class="font-bold text-lg text-gray-800 mb-2">{{ infoVideoLetra.titulo }}</h4>
+                                <p class="text-sm text-gray-600 mb-4">Este é o vídeo correto?</p>
+                                <div class="flex gap-3">
+                                    <button @click="confirmarEGerarLetra" :disabled="gerandoLetra" class="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
+                                        <i v-if="!gerandoLetra" data-lucide="check" class="w-5 h-5"></i>
+                                        <i v-else data-lucide="loader" class="w-5 h-5 animate-spin"></i>
+                                        {{ gerandoLetra ? 'Gerando letra...' : 'Sim, gerar letra' }}
+                                    </button>
+                                    <button @click="cancelarConfirmacao" :disabled="gerandoLetra" class="bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-bold transition-colors">
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div v-if="mensagemErro" class="mt-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                            {{ mensagemErro }}
+                        </div>
+                    </div>
+
+                    <!-- Letra Gerada -->
+                    <div v-if="letraGerada" class="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <i data-lucide="file-text" class="w-5 h-5"></i> Letra Gerada
+                            </h3>
+                            <button @click="baixarLetra" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
+                                <i data-lucide="download" class="w-4 h-4"></i> Baixar TXT
+                            </button>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 max-h-96 overflow-y-auto">
+                            <pre class="whitespace-pre-wrap text-sm text-gray-800 font-mono">{{ letraGerada }}</pre>
+                        </div>
+                        
+                        <div class="mt-4 flex gap-3">
+                            <button @click="urlLetra = ''; infoVideoLetra = null; letraGerada = null" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-bold transition-colors">
+                                Nova Letra
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    usuarioLogado: null,
+                    modoLogin: true,
+                    usuarioInput: '',
+                    senhaInput: '',
+                    mensagemErro: '',
+                    mensagemSucesso: '',
+                    urlVideo: '',
+                    covers: [],
+                    carregando: false,
+                    abaAtiva: 'minhaFila', // 'minhaFila', 'usuarios' ou 'configuracoes'
+                    usuariosCadastrados: [],
+                    carregandoUsuarios: false,
+                    usuarioSelecionado: null,
+                    coversUsuarioSelecionado: [],
+                    perfilPrivado: false,
+                    salvandoConfiguracoes: false,
+                    erroPerfilPrivado: false,
+                    // Letras
+                    urlLetra: '',
+                    infoVideoLetra: null,
+                    letraGerada: null,
+                    gerandoLetra: false,
+                    confirmandoVideo: false
+                }
+            },
+            computed: {
+            },
+            methods: {
+                async fazerCadastro() {
+                    this.mensagemErro = '';
+                    this.mensagemSucesso = '';
+                    
+                    if (!this.usuarioInput || !this.senhaInput) {
+                        this.mensagemErro = 'Preencha todos os campos';
+                        return;
+                    }
+                    
+                    try {
+                        const res = await fetch('/api/cadastrar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                usuario: this.usuarioInput,
+                                senha: this.senhaInput
+                            })
+                        });
+                        
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            this.usuarioLogado = this.usuarioInput;
+                            this.usuarioInput = '';
+                            this.senhaInput = '';
+                            await this.carregarCovers();
+                            await this.carregarConfiguracoes();
+                        } else {
+                            this.mensagemErro = data.message || 'Erro ao cadastrar';
+                        }
+                    } catch (e) {
+                        this.mensagemErro = 'Erro ao conectar com o servidor';
+                    }
+                },
+                async fazerLogin() {
+                    this.mensagemErro = '';
+                    this.mensagemSucesso = '';
+                    
+                    if (!this.usuarioInput || !this.senhaInput) {
+                        this.mensagemErro = 'Preencha todos os campos';
+                        return;
+                    }
+                    
+                    try {
+                        const res = await fetch('/api/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                usuario: this.usuarioInput,
+                                senha: this.senhaInput
+                            })
+                        });
+                        
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            this.usuarioLogado = this.usuarioInput;
+                            this.usuarioInput = '';
+                            this.senhaInput = '';
+                            await this.carregarCovers();
+                            await this.carregarConfiguracoes();
+                        } else {
+                            this.mensagemErro = data.message || 'Usuário ou senha incorretos';
+                        }
+                    } catch (e) {
+                        this.mensagemErro = 'Erro ao conectar com o servidor';
+                    }
+                },
+                sair() {
+                    this.usuarioLogado = null;
+                    this.covers = [];
+                    this.urlVideo = '';
+                },
+                async carregarCovers() {
+                    if (!this.usuarioLogado) return;
+                    
+                    try {
+                        const res = await fetch(`/api/covers/${this.usuarioLogado}`);
+                        this.covers = await res.json();
+                    } catch (e) {
+                        console.error('Erro ao carregar covers:', e);
+                    }
+                },
+                async adicionarCover() {
+                    if (!this.urlVideo) return;
+                    
+                    this.carregando = true;
+                    this.mensagemErro = '';
+                    this.mensagemSucesso = '';
+                    
+                    try {
+                        const res = await fetch('/api/covers', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                usuario: this.usuarioLogado,
+                                url: this.urlVideo
+                            })
+                        });
+                        
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            this.urlVideo = '';
+                            this.mensagemSucesso = 'Cover adicionado com sucesso!';
+                            await this.carregarCovers();
+                            setTimeout(() => this.mensagemSucesso = '', 3000);
+                        } else {
+                            this.mensagemErro = data.message || 'Erro ao adicionar cover';
+                        }
+                    } catch (e) {
+                        this.mensagemErro = 'Erro ao adicionar cover. Verifique se a URL é válida.';
+                    } finally {
+                        this.carregando = false;
+                    }
+                },
+                async removerCover(id) {
+                    if (!confirm('Deseja remover este cover da fila?')) return;
+                    
+                    try {
+                        const res = await fetch(`/api/covers/${this.usuarioLogado}/${id}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (res.ok) {
+                            await this.carregarCovers();
+                        }
+                    } catch (e) {
+                        console.error('Erro ao remover cover:', e);
+                    }
+                },
+                async moverCover(index, direcao) {
+                    const cover = this.covers[index];
+                    
+                    try {
+                        const res = await fetch('/api/covers/reordenar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                usuario: this.usuarioLogado,
+                                id: cover.id,
+                                direcao: direcao
+                            })
+                        });
+                        
+                        if (res.ok) {
+                            await this.carregarCovers();
+                        }
+                    } catch (e) {
+                        console.error('Erro ao mover cover:', e);
+                    }
+                },
+                async carregarUsuarios() {
+                    this.carregandoUsuarios = true;
+                    try {
+                        const res = await fetch('/api/usuarios');
+                        this.usuariosCadastrados = await res.json();
+                    } catch (e) {
+                        console.error('Erro ao carregar usuários:', e);
+                        this.mensagemErro = 'Erro ao carregar lista de usuários';
+                    } finally {
+                        this.carregandoUsuarios = false;
+                    }
+                },
+                async abrirPerfilUsuario(usuario) {
+                    this.usuarioSelecionado = usuario;
+                    this.coversUsuarioSelecionado = [];
+                    this.erroPerfilPrivado = false;
+                    this.mensagemErro = '';
+                    
+                    try {
+                        const res = await fetch(`/api/covers/${usuario}?solicitante=${this.usuarioLogado}`);
+                        const data = await res.json();
+                        
+                        if (data.success === false) {
+                            this.erroPerfilPrivado = true;
+                            this.coversUsuarioSelecionado = [];
+                        } else {
+                            this.erroPerfilPrivado = false;
+                            this.coversUsuarioSelecionado = data;
+                        }
+                    } catch (e) {
+                        console.error('Erro ao carregar covers do usuário:', e);
+                        this.erroPerfilPrivado = true;
+                    }
+                },
+                voltarParaListaUsuarios() {
+                    this.usuarioSelecionado = null;
+                    this.coversUsuarioSelecionado = [];
+                    this.erroPerfilPrivado = false;
+                    this.mensagemErro = '';
+                },
+                async buscarInfoVideo() {
+                    if (!this.urlLetra) {
+                        this.mensagemErro = 'Por favor, insira um link do YouTube';
+                        return;
+                    }
+                    
+                    this.confirmandoVideo = true;
+                    this.mensagemErro = '';
+                    
+                    try {
+                        const res = await fetch('/api/letras/info', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: this.urlLetra })
+                        });
+                        
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            this.infoVideoLetra = data.info;
+                        } else {
+                            this.mensagemErro = data.message || 'Erro ao buscar informações do vídeo';
+                        }
+                    } catch (e) {
+                        this.mensagemErro = 'Erro ao conectar com o servidor';
+                    } finally {
+                        this.confirmandoVideo = false;
+                    }
+                },
+                cancelarConfirmacao() {
+                    this.infoVideoLetra = null;
+                    this.urlLetra = '';
+                },
+                async confirmarEGerarLetra() {
+                    if (!this.infoVideoLetra) return;
+                    
+                    this.gerandoLetra = true;
+                    this.mensagemErro = '';
+                    this.letraGerada = null;
+                    
+                    try {
+                        const res = await fetch('/api/letras/gerar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: this.infoVideoLetra.url })
+                        });
+                        
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            this.letraGerada = data.letra;
+                        } else {
+                            this.mensagemErro = data.message || 'Erro ao gerar letra';
+                        }
+                    } catch (e) {
+                        this.mensagemErro = 'Erro ao gerar letra';
+                    } finally {
+                        this.gerandoLetra = false;
+                    }
+                },
+                baixarLetra() {
+                    if (!this.letraGerada || !this.infoVideoLetra) return;
+                    
+                    const nomeArquivo = this.infoVideoLetra.titulo.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.txt';
+                    const blob = new Blob([this.letraGerada], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = nomeArquivo;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                },
+                async carregarConfiguracoes() {
+                    if (!this.usuarioLogado) return;
+                    
+                    try {
+                        const res = await fetch(`/api/configuracoes/${this.usuarioLogado}`);
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            this.perfilPrivado = data.perfilPrivado || false;
+                        }
+                    } catch (e) {
+                        console.error('Erro ao carregar configurações:', e);
+                    }
+                },
+                async salvarConfiguracoes() {
+                    if (!this.usuarioLogado) return;
+                    
+                    this.salvandoConfiguracoes = true;
+                    this.mensagemErro = '';
+                    this.mensagemSucesso = '';
+                    
+                    try {
+                        const res = await fetch(`/api/configuracoes/${this.usuarioLogado}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                perfilPrivado: this.perfilPrivado
+                            })
+                        });
+                        
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                            this.mensagemSucesso = 'Configurações salvas com sucesso!';
+                            this.perfilPrivado = data.perfilPrivado;
+                            
+                            // Recarrega a lista de usuários se estiver na aba de usuários
+                            if (this.abaAtiva === 'usuarios') {
+                                await this.carregarUsuarios();
+                            }
+                            
+                            setTimeout(() => this.mensagemSucesso = '', 3000);
+                        } else {
+                            this.mensagemErro = data.message || 'Erro ao salvar configurações';
+                        }
+                    } catch (e) {
+                        this.mensagemErro = 'Erro ao salvar configurações';
+                        console.error('Erro ao salvar configurações:', e);
+                    } finally {
+                        this.salvandoConfiguracoes = false;
+                    }
+                }
+            },
+            watch: {
+                abaAtiva(newAba) {
+                    if (newAba === 'usuarios' && this.usuariosCadastrados.length === 0) {
+                        this.carregarUsuarios();
+                    }
+                    if (newAba === 'configuracoes' && this.usuarioLogado) {
+                        this.carregarConfiguracoes();
+                    }
+                }
+            },
+            mounted() {
+                lucide.createIcons();
+            },
+            updated() {
+                lucide.createIcons();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
+
